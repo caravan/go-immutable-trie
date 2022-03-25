@@ -142,3 +142,24 @@ func TestRemoval(t *testing.T) {
 	as.True(ok)
 	as.Equal(96, f)
 }
+
+func TestSplitting(t *testing.T) {
+	as := assert.New(t)
+
+	check := map[string]int{}
+	for k, v := range testMap {
+		check[k] = v
+	}
+
+	tr := makeTestTrie()
+	for !tr.IsEmpty() {
+		f := tr.First()
+		tr = tr.Rest()
+
+		v := f.Value()
+		as.Equal(v, check[f.Key()])
+		delete(check, f.Key())
+	}
+
+	as.Equal(0, len(check))
+}
