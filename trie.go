@@ -21,7 +21,7 @@ type (
 	}
 
 	trie[Key Keyable, Value any] struct {
-		pair    *pair[Key, Value]
+		pair    pair[Key, Value]
 		buckets [nibbleSize]*trie[Key, Value]
 	}
 
@@ -53,7 +53,7 @@ func (t *trie[Key, Value]) Get(k Key) (Value, bool) {
 }
 
 func (t *trie[Key, Value]) get(k Key, n Nibbles[Key]) (Value, bool) {
-	if t.pair != nil && EqualKeys[Key](t.pair.key, k) {
+	if EqualKeys[Key](t.pair.key, k) {
 		return t.pair.value, true
 	}
 	if idx, rest, ok := n.Consume(); ok {
@@ -75,9 +75,6 @@ func (t *trie[Key, Value]) Put(k Key, v Value) Trie[Key, Value] {
 func (t *trie[Key, Value]) put(
 	p *pair[Key, Value], n Nibbles[Key],
 ) *trie[Key, Value] {
-	if t.pair == nil {
-		panic("programmer error: nodes should always have a pair")
-	}
 	switch CompareKeys[Key](p.key, t.pair.key) {
 	case EqualTo:
 		return t.replacePair(p)
@@ -90,7 +87,7 @@ func (t *trie[Key, Value]) put(
 
 func (t *trie[Key, Value]) replacePair(p *pair[Key, Value]) *trie[Key, Value] {
 	res := *t
-	res.pair = p
+	res.pair = *p
 	return &res
 }
 
@@ -98,19 +95,18 @@ func (t *trie[Key, Value]) insertPair(
 	p *pair[Key, Value], n Nibbles[Key],
 ) *trie[Key, Value] {
 	res := t.demoted(n)
-	res.pair = p
+	res.pair = *p
 	return res
 }
 
 func (t *trie[Key, Value]) demoted(n Nibbles[Key]) *trie[Key, Value] {
 	res := *t
-	res.pair = nil
 	if idx, next, ok := n.Branch(t.pair.key).Consume(); ok {
 		bucket := res.buckets[idx]
 		if bucket == nil {
 			res.buckets[idx] = &trie[Key, Value]{pair: t.pair}
 		} else {
-			res.buckets[idx] = bucket.put(t.pair, next)
+			res.buckets[idx] = bucket.put(&t.pair, next)
 		}
 	} else {
 		panic("programmer error: demoted a non-consumable key")
@@ -125,7 +121,7 @@ func (t *trie[Key, Value]) appendPair(
 	if idx, rest, ok := n.Consume(); ok {
 		bucket := t.buckets[idx]
 		if bucket == nil {
-			res.buckets[idx] = &trie[Key, Value]{pair: p}
+			res.buckets[idx] = &trie[Key, Value]{pair: *p}
 		} else {
 			res.buckets[idx] = bucket.put(p, rest)
 		}
@@ -182,7 +178,7 @@ func (t *trie[Key, Value]) leastBucket() (*trie[Key, Value], int) {
 	idx := -1
 	first := true
 	for i, bucket := range t.buckets {
-		if bucket == nil || bucket.pair == nil {
+		if bucket == nil {
 			continue
 		}
 		if k := bucket.pair.Key(); first || LessThanKeys[Key](k, low) {
@@ -206,9 +202,6 @@ func (t *trie[Key, Value]) Rest() Trie[Key, Value] {
 }
 
 func (t *trie[Key, Value]) Split() (Pair[Key, Value], Trie[Key, Value], bool) {
-	if t.pair == nil {
-		panic("programmer error: nodes should always have a pair")
-	}
 	if r := t.promote(); r != nil {
 		return t.pair, r, true
 	}
@@ -229,13 +222,13 @@ func (t *trie[_, _]) IsEmpty() bool {
 	return false
 }
 
-func (*pair[_, _]) pair() {}
+func (pair[_, _]) pair() {}
 
-func (p *pair[Key, _]) Key() Key {
+func (p pair[Key, _]) Key() Key {
 	return p.key
 }
 
-func (p *pair[_, Value]) Value() Value {
+func (p pair[_, Value]) Value() Value {
 	return p.value
 }
 
@@ -248,7 +241,7 @@ func (empty[Key, Value]) Get(Key) (Value, bool) {
 
 func (empty[Key, Value]) Put(k Key, v Value) Trie[Key, Value] {
 	return &trie[Key, Value]{
-		pair: &pair[Key, Value]{k, v},
+		pair: pair[Key, Value]{k, v},
 	}
 }
 
