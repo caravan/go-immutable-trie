@@ -14,36 +14,11 @@ type (
 		IsEmpty() bool
 	}
 
-	Pair[Key Keyable, Value any] interface {
-		pair() // marker
-		Key() Key
-		Value() Value
-	}
-
 	trie[Key Keyable, Value any] struct {
 		pair    pair[Key, Value]
 		buckets [nibbleSize]*trie[Key, Value]
 	}
-
-	pair[Key Keyable, Value any] struct {
-		key   Key
-		value Value
-	}
-
-	empty[Key Keyable, Value any] struct{}
 )
-
-func New[Key Keyable, Value any]() Trie[Key, Value] {
-	return empty[Key, Value]{}
-}
-
-func From[Value any](in map[string]Value) Trie[string, Value] {
-	res := New[string, Value]()
-	for k, v := range in {
-		res = res.Put(k, v)
-	}
-	return res
-}
 
 func (*trie[_, _]) trie() {}
 
@@ -221,54 +196,4 @@ func (t *trie[_, _]) Count() int {
 
 func (t *trie[_, _]) IsEmpty() bool {
 	return false
-}
-
-func (*pair[_, _]) pair() {}
-
-func (p *pair[Key, _]) Key() Key {
-	return p.key
-}
-
-func (p *pair[_, Value]) Value() Value {
-	return p.value
-}
-
-func (empty[_, _]) trie() {}
-
-func (empty[Key, Value]) Get(Key) (Value, bool) {
-	var zero Value
-	return zero, false
-}
-
-func (empty[Key, Value]) Put(k Key, v Value) Trie[Key, Value] {
-	return &trie[Key, Value]{
-		pair: pair[Key, Value]{k, v},
-	}
-}
-
-func (empty[Key, Value]) Remove(_ Key) (Value, Trie[Key, Value], bool) {
-	var zero Value
-	return zero, empty[Key, Value]{}, false
-}
-
-func (empty[_, _]) IsEmpty() bool {
-	return true
-}
-
-func (empty[_, _]) Count() int {
-	return 0
-}
-
-func (empty[Key, Value]) Split() (Pair[Key, Value], Trie[Key, Value], bool) {
-	return nil, empty[Key, Value]{}, false
-}
-
-func (e empty[Key, Value]) First() Pair[Key, Value] {
-	f, _, _ := e.Split()
-	return f
-}
-
-func (e empty[Key, Value]) Rest() Trie[Key, Value] {
-	_, r, _ := e.Split()
-	return r
 }
