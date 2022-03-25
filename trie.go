@@ -202,10 +202,11 @@ func (t *trie[Key, Value]) Rest() Trie[Key, Value] {
 }
 
 func (t *trie[Key, Value]) Split() (Pair[Key, Value], Trie[Key, Value], bool) {
+	f := t.pair
 	if r := t.promote(); r != nil {
-		return t.pair, r, true
+		return &f, r, true
 	}
-	return t.pair, empty[Key, Value]{}, true
+	return &f, empty[Key, Value]{}, true
 }
 
 func (t *trie[_, _]) Count() int {
@@ -222,13 +223,13 @@ func (t *trie[_, _]) IsEmpty() bool {
 	return false
 }
 
-func (pair[_, _]) pair() {}
+func (*pair[_, _]) pair() {}
 
-func (p pair[Key, _]) Key() Key {
+func (p *pair[Key, _]) Key() Key {
 	return p.key
 }
 
-func (p pair[_, Value]) Value() Value {
+func (p *pair[_, Value]) Value() Value {
 	return p.value
 }
 
