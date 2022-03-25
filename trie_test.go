@@ -77,6 +77,10 @@ func TestRetrieval(t *testing.T) {
 		as.Less(prev, f.Key())
 		prev = f.Key()
 	}
+
+	r, ok := tr.Get("b")
+	as.False(ok)
+	as.Equal(0, r)
 }
 
 func TestReplacement(t *testing.T) {
