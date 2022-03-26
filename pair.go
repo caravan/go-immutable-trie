@@ -1,14 +1,16 @@
 package trie
 
+import "github.com/caravan/go-immutable-trie/key"
+
 type (
 	// Pair stores Key/Value pairs
-	Pair[Key Keyable, Value any] interface {
+	Pair[Key key.Keyable, Value any] interface {
 		pair() // marker
 		Key() Key
 		Value() Value
 	}
 
-	pair[Key Keyable, Value any] struct {
+	pair[Key key.Keyable, Value any] struct {
 		key   Key
 		value Value
 	}

@@ -1,7 +1,9 @@
 package trie
 
+import "github.com/caravan/go-immutable-trie/key"
+
 // New returns a new empty Trie instance
-func New[Key Keyable, Value any]() Trie[Key, Value] {
+func New[Key key.Keyable, Value any]() Trie[Key, Value] {
 	return empty[Key, Value]{}
 }
 

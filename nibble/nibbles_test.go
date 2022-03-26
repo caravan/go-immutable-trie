@@ -1,16 +1,16 @@
-package trie_test
+package nibble_test
 
 import (
 	"testing"
 
-	trie "github.com/caravan/go-immutable-trie"
+	"github.com/caravan/go-immutable-trie/nibble"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLargeNibbles(t *testing.T) {
 	as := assert.New(t)
 
-	n := trie.Nibble("hello")
+	n := nibble.Make("hello")
 	as.NotNil(n)
 	as.Equal(0, n.ByteOffset())
 
@@ -30,7 +30,7 @@ func TestLargeNibbles(t *testing.T) {
 func TestSmallNibbles(t *testing.T) {
 	as := assert.New(t)
 
-	n := trie.Nibble([]byte{'h'})
+	n := nibble.Make([]byte{'h'})
 	as.NotNil(n)
 	as.Equal(0, n.ByteOffset())
 
@@ -55,7 +55,7 @@ func TestSmallNibbles(t *testing.T) {
 func TestEmptyNibbles(t *testing.T) {
 	as := assert.New(t)
 
-	n := trie.Nibble([]byte{})
+	n := nibble.Make([]byte{})
 	as.NotNil(n)
 	as.Equal(0, n.ByteOffset())
 

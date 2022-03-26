@@ -1,6 +1,8 @@
 package trie
 
-type empty[Key Keyable, Value any] struct{}
+import "github.com/caravan/go-immutable-trie/key"
+
+type empty[Key key.Keyable, Value any] struct{}
 
 func (empty[_, _]) trie() {}
 

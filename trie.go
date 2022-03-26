@@ -1,8 +1,13 @@
 package trie
 
+import (
+	"github.com/caravan/go-immutable-trie/key"
+	"github.com/caravan/go-immutable-trie/nibble"
+)
+
 type (
 	// Trie maps a set of Keys to another set of Values
-	Trie[Key Keyable, Value any] interface {
+	Trie[Key key.Keyable, Value any] interface {
 		trie() // marker
 		Put(Key, Value) Trie[Key, Value]
 		Get(Key) (Value, bool)
@@ -14,21 +19,21 @@ type (
 		IsEmpty() bool
 	}
 
-	trie[Key Keyable, Value any] struct {
+	trie[Key key.Keyable, Value any] struct {
 		pair    pair[Key, Value]
-		buckets [nibbleSize]*trie[Key, Value]
+		buckets [nibble.Size]*trie[Key, Value]
 	}
 )
 
 func (*trie[_, _]) trie() {}
 
 func (t *trie[Key, Value]) Get(k Key) (Value, bool) {
-	h := Nibble(k)
-	return t.get(k, h)
+	n := nibble.Make(k)
+	return t.get(k, n)
 }
 
-func (t *trie[Key, Value]) get(k Key, n Nibbles[Key]) (Value, bool) {
-	if EqualKeys[Key](t.pair.key, k) {
+func (t *trie[Key, Value]) get(k Key, n nibble.Nibbles[Key]) (Value, bool) {
+	if key.EqualTo[Key](t.pair.key, k) {
 		return t.pair.value, true
 	}
 	if idx, rest, ok := n.Consume(); ok {
@@ -43,17 +48,17 @@ func (t *trie[Key, Value]) get(k Key, n Nibbles[Key]) (Value, bool) {
 
 func (t *trie[Key, Value]) Put(k Key, v Value) Trie[Key, Value] {
 	p := &pair[Key, Value]{k, v}
-	h := Nibble[Key](p.key)
-	return t.put(p, h)
+	n := nibble.Make[Key](p.key)
+	return t.put(p, n)
 }
 
 func (t *trie[Key, Value]) put(
-	p *pair[Key, Value], n Nibbles[Key],
+	p *pair[Key, Value], n nibble.Nibbles[Key],
 ) *trie[Key, Value] {
-	switch CompareKeys[Key](p.key, t.pair.key) {
-	case EqualTo:
+	switch key.Compare[Key](p.key, t.pair.key) {
+	case key.Equal:
 		return t.replacePair(p)
-	case LessThan:
+	case key.Less:
 		return t.insertPair(p, n)
 	default:
 		return t.appendPair(p, n)
@@ -67,7 +72,7 @@ func (t *trie[Key, Value]) replacePair(p *pair[Key, Value]) *trie[Key, Value] {
 }
 
 func (t *trie[Key, Value]) insertPair(
-	p *pair[Key, Value], n Nibbles[Key],
+	p *pair[Key, Value], n nibble.Nibbles[Key],
 ) *trie[Key, Value] {
 	res := *t
 	res.pair = *p
@@ -85,7 +90,7 @@ func (t *trie[Key, Value]) insertPair(
 }
 
 func (t *trie[Key, Value]) appendPair(
-	p *pair[Key, Value], n Nibbles[Key],
+	p *pair[Key, Value], n nibble.Nibbles[Key],
 ) *trie[Key, Value] {
 	res := *t
 	if idx, rest, ok := n.Consume(); ok {
@@ -102,8 +107,8 @@ func (t *trie[Key, Value]) appendPair(
 }
 
 func (t *trie[Key, Value]) Remove(k Key) (Value, Trie[Key, Value], bool) {
-	h := Nibble(k)
-	if v, r, ok := t.remove(k, h); ok {
+	n := nibble.Make(k)
+	if v, r, ok := t.remove(k, n); ok {
 		if r != nil {
 			return v, r, true
 		}
@@ -114,9 +119,9 @@ func (t *trie[Key, Value]) Remove(k Key) (Value, Trie[Key, Value], bool) {
 }
 
 func (t *trie[Key, Value]) remove(
-	k Key, n Nibbles[Key],
+	k Key, n nibble.Nibbles[Key],
 ) (Value, *trie[Key, Value], bool) {
-	if EqualKeys[Key](t.pair.key, k) {
+	if key.EqualTo[Key](t.pair.key, k) {
 		return t.pair.value, t.promote(), true
 	}
 	if idx, rest, ok := n.Consume(); ok {
@@ -151,7 +156,7 @@ func (t *trie[Key, Value]) leastBucket() (*trie[Key, Value], int) {
 		if bucket == nil {
 			continue
 		}
-		if k := bucket.pair.Key(); first || LessThanKeys[Key](k, low) {
+		if k := bucket.pair.Key(); first || key.LessThan[Key](k, low) {
 			idx = i
 			low = k
 			res = bucket

@@ -1,27 +1,29 @@
-package trie
+package nibble
+
+import "github.com/caravan/go-immutable-trie/key"
 
 type (
 	// Nibbles is an interface used to consume 4-bit values from a Key
-	Nibbles[Key Keyable] interface {
+	Nibbles[Key key.Keyable] interface {
 		Consume() (uint8, Nibbles[Key], bool)
 		ByteOffset() int
 		Branch(Key) Nibbles[Key]
 	}
 
-	nibbles[Key Keyable] struct {
+	nibbles[Key key.Keyable] struct {
 		data Key
 		off  int
 	}
 
-	highNibbles[Key Keyable]  struct{ nibbles[Key] }
-	lowNibbles[Key Keyable]   struct{ nibbles[Key] }
-	emptyNibbles[Key Keyable] struct{ nibbles[Key] }
+	highNibbles[Key key.Keyable]  struct{ nibbles[Key] }
+	lowNibbles[Key key.Keyable]   struct{ nibbles[Key] }
+	emptyNibbles[Key key.Keyable] struct{ nibbles[Key] }
 )
 
-const nibbleSize = 16
+const Size = 16
 
-// Nibble constructs a new set of Nibbles from the provided Key
-func Nibble[Key Keyable](k Key) Nibbles[Key] {
+// Make constructs a new set of Nibbles from the provided Key
+func Make[Key key.Keyable](k Key) Nibbles[Key] {
 	if len(k) > 0 {
 		n := makeNibbles[Key](k, 0)
 		return &highNibbles[Key]{n}
@@ -29,7 +31,7 @@ func Nibble[Key Keyable](k Key) Nibbles[Key] {
 	return &emptyNibbles[Key]{}
 }
 
-func makeNibbles[Key Keyable](data Key, off int) nibbles[Key] {
+func makeNibbles[Key key.Keyable](data Key, off int) nibbles[Key] {
 	return nibbles[Key]{
 		data: data,
 		off:  off,
