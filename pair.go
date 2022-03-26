@@ -1,6 +1,7 @@
 package trie
 
 type (
+	// Pair stores Key/Value pairs
 	Pair[Key Keyable, Value any] interface {
 		pair() // marker
 		Key() Key

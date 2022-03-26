@@ -1,6 +1,7 @@
 package trie
 
 type (
+	// Nibbles is an interface used to consume 4-bit values from a Key
 	Nibbles[Key Keyable] interface {
 		Consume() (uint8, Nibbles[Key], bool)
 		ByteOffset() int
@@ -19,6 +20,7 @@ type (
 
 const nibbleSize = 16
 
+// Nibble constructs a new set of Nibbles from the provided Key
 func Nibble[Key Keyable](k Key) Nibbles[Key] {
 	if len(k) > 0 {
 		n := makeNibbles[Key](k, 0)

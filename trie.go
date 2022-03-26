@@ -69,13 +69,8 @@ func (t *trie[Key, Value]) replacePair(p *pair[Key, Value]) *trie[Key, Value] {
 func (t *trie[Key, Value]) insertPair(
 	p *pair[Key, Value], n Nibbles[Key],
 ) *trie[Key, Value] {
-	res := t.demoted(n)
-	res.pair = *p
-	return res
-}
-
-func (t *trie[Key, Value]) demoted(n Nibbles[Key]) *trie[Key, Value] {
 	res := *t
+	res.pair = *p
 	if idx, next, ok := n.Branch(t.pair.key).Consume(); ok {
 		bucket := res.buckets[idx]
 		if bucket == nil {
@@ -167,13 +162,15 @@ func (t *trie[Key, Value]) leastBucket() (*trie[Key, Value], int) {
 }
 
 func (t *trie[Key, Value]) First() Pair[Key, Value] {
-	f, _, _ := t.Split()
-	return f
+	f := t.pair
+	return &f
 }
 
 func (t *trie[Key, Value]) Rest() Trie[Key, Value] {
-	_, r, _ := t.Split()
-	return r
+	if r := t.promote(); r != nil {
+		return r
+	}
+	return empty[Key, Value]{}
 }
 
 func (t *trie[Key, Value]) Split() (Pair[Key, Value], Trie[Key, Value], bool) {
