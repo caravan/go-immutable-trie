@@ -43,3 +43,33 @@ func (e empty[Key, Value]) Rest() Trie[Key, Value] {
 	_, r, _ := e.Split()
 	return r
 }
+
+func (e empty[Key, Value]) Select() Query[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) From(Key) Query[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) Ascending() Query[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) Descending() Query[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) Next() (Pair[Key, Value], Query[Key, Value], bool) {
+	return nil, nil, false
+}
+
+func (e empty[Key, Value]) ForEach(ForEach[Key, Value]) {}
+
+func (e empty[Key, Value]) Where(Filter[Key, Value]) Query[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) While(Filter[Key, Value]) Query[Key, Value] {
+	return e
+}
