@@ -1,8 +1,22 @@
 package trie
 
-import "github.com/caravan/go-immutable-trie/key"
+import (
+	"github.com/caravan/go-immutable-trie/key"
+	"github.com/caravan/go-immutable-trie/nibble"
+)
 
 type (
+	Direction[Key key.Keyable, Value any] interface {
+		Select[Key, Value]
+		Ascending() Select[Key, Value]
+		Descending() Select[Key, Value]
+	}
+
+	Select[Key key.Keyable, Value any] interface {
+		All() Query[Key, Value]
+		From(Key) Query[Key, Value]
+	}
+
 	Iterator[Key key.Keyable, Value any] interface {
 		Next() (Pair[Key, Value], Query[Key, Value], bool)
 	}
@@ -19,6 +33,7 @@ type (
 
 	iterator[Key key.Keyable, Value any] struct {
 		parent *iterator[Key, Value]
+		direction
 		*trie[Key, Value]
 		idx int
 	}
@@ -36,14 +51,21 @@ type (
 		Query[Key, Value]
 		Filter[Key, Value]
 	}
+
+	direction int
+)
+
+const (
+	ascending direction = iota
+	descending
 )
 
 func makeQuery[Key key.Keyable, Value any](
 	t *trie[Key, Value],
-) Query[Key, Value] {
-	return (&iterator[Key, Value]{
+) Direction[Key, Value] {
+	return &iterator[Key, Value]{
 		trie: t,
-	}).decorate()
+	}
 }
 
 func (i *iterator[Key, Value]) mutate(
@@ -54,12 +76,64 @@ func (i *iterator[Key, Value]) mutate(
 	return res
 }
 
+func (i *iterator[Key, Value]) Ascending() Select[Key, Value] {
+	return i.setDirection(ascending)
+}
+
+func (i *iterator[Key, Value]) Descending() Select[Key, Value] {
+	return i.setDirection(descending)
+}
+
+func (i *iterator[Key, Value]) setDirection(d direction) Select[Key, Value] {
+	if i.direction == d {
+		return i
+	}
+	return i.mutate(func(i *iterator[Key, Value]) {
+		i.direction = d
+	})
+}
+
+func (i *iterator[Key, Value]) From(k Key) Query[Key, Value] {
+	n := nibble.Make(k)
+	bucket, _ := i.seek(k, n)
+	return bucket.decorate()
+}
+
+func (i *iterator[Key, Value]) seek(
+	k Key, n nibble.Nibbles[Key],
+) (*iterator[Key, Value], bool) {
+	t := i.trie
+	if key.EqualTo[Key](t.pair.key, k) {
+		return i, true
+	}
+	if idx, rest, ok := n.Consume(); ok {
+		bucket := t.buckets[idx]
+		if bucket != nil {
+			p := i.advanceIndex(int(idx))
+			c := p.child(bucket)
+			return c.seek(k, rest)
+		}
+	}
+	return i, false
+}
+
+func (i *iterator[Key, Value]) All() Query[Key, Value] {
+	switch i.direction {
+	case ascending:
+		return i.decorate()
+	default:
+		panic("not implemented")
+	}
+}
+
 func (i *iterator[Key, Value]) Next() (
 	Pair[Key, Value], Query[Key, Value], bool,
 ) {
 	p := i.pair
-	n, ok := i.fetchNext()
-	return &p, decorate(n), ok
+	if n, ok := i.fetchNext(); ok {
+		return &p, decorate(n), ok
+	}
+	return &p, empty[Key, Value]{}, false
 }
 
 func (i *iterator[Key, Value]) fetchNext() (Iterator[Key, Value], bool) {
@@ -67,15 +141,14 @@ func (i *iterator[Key, Value]) fetchNext() (Iterator[Key, Value], bool) {
 		if bucket == nil {
 			continue
 		}
-		return &iterator[Key, Value]{
-			parent: i.advanceIndex(idx + 1),
-			trie:   bucket,
-		}, true
+		p := i.advanceIndex(idx)
+		return p.child(bucket), true
 	}
 	if i.parent != nil {
-		return i.parent.fetchNext()
+		p := i.parent.advanceIndex(1)
+		return p.fetchNext()
 	}
-	return nil, false
+	return empty[Key, Value]{}, false
 }
 
 func (i *iterator[Key, Value]) advanceIndex(idx int) *iterator[Key, Value] {
@@ -84,10 +157,14 @@ func (i *iterator[Key, Value]) advanceIndex(idx int) *iterator[Key, Value] {
 	})
 }
 
-func (i *iterator[Key, Value]) nextDescending() (
-	Pair[Key, Value], Query[Key, Value], bool,
-) {
-	panic("not implemented")
+func (i *iterator[Key, Value]) child(
+	t *trie[Key, Value],
+) *iterator[Key, Value] {
+	return &iterator[Key, Value]{
+		parent:    i,
+		direction: i.direction,
+		trie:      t,
+	}
 }
 
 func (i *iterator[Key, Value]) decorate() Query[Key, Value] {
@@ -99,10 +176,11 @@ func (w *where[Key, Value]) Next() (
 ) {
 	for p, c, ok := w.Query.Next(); ok; p, c, ok = c.Next() {
 		if w.Filter(p.Key(), p.Value()) {
-			return p, (&where[Key, Value]{c, w.Filter}).decorate(), true
+			n := (&where[Key, Value]{c, w.Filter}).decorate()
+			return p, n, true
 		}
 	}
-	return nil, nil, false
+	return nil, empty[Key, Value]{}, false
 }
 
 func (w *where[Key, Value]) decorate() Query[Key, Value] {
@@ -113,9 +191,10 @@ func (w *while[Key, Value]) Next() (
 	Pair[Key, Value], Query[Key, Value], bool,
 ) {
 	if p, c, ok := w.Query.Next(); ok && w.Filter(p.Key(), p.Value()) {
-		return p, (&while[Key, Value]{c, w.Filter}).decorate(), true
+		n := (&while[Key, Value]{c, w.Filter}).decorate()
+		return p, n, true
 	}
-	return nil, nil, false
+	return nil, empty[Key, Value]{}, false
 }
 
 func (w *while[Key, Value]) decorate() Query[Key, Value] {

@@ -44,19 +44,23 @@ func (e empty[Key, Value]) Rest() Trie[Key, Value] {
 	return r
 }
 
-func (e empty[Key, Value]) Select() Query[Key, Value] {
+func (e empty[Key, Value]) Select() Direction[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) Ascending() Select[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) Descending() Select[Key, Value] {
+	return e
+}
+
+func (e empty[Key, Value]) All() Query[Key, Value] {
 	return e
 }
 
 func (e empty[Key, Value]) From(Key) Query[Key, Value] {
-	return e
-}
-
-func (e empty[Key, Value]) Ascending() Query[Key, Value] {
-	return e
-}
-
-func (e empty[Key, Value]) Descending() Query[Key, Value] {
 	return e
 }
 

@@ -17,7 +17,7 @@ type (
 		Split() (Pair[Key, Value], Trie[Key, Value], bool)
 		Count() int
 		IsEmpty() bool
-		Select() Query[Key, Value]
+		Select() Direction[Key, Value]
 	}
 
 	trie[Key key.Keyable, Value any] struct {
@@ -201,6 +201,6 @@ func (t *trie[_, _]) IsEmpty() bool {
 	return false
 }
 
-func (t *trie[Key, Value]) Select() Query[Key, Value] {
+func (t *trie[Key, Value]) Select() Direction[Key, Value] {
 	return makeQuery[Key, Value](t)
 }

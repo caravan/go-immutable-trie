@@ -24,7 +24,7 @@ func testResults(t *testing.T, q trie.Query[string, int], entries []testEntry) {
 }
 
 func TestWhereQuery(t *testing.T) {
-	q := makeTestTrie().Select().Where(func(k string, v int) bool {
+	q := makeTestTrie().Select().All().Where(func(k string, v int) bool {
 		return k[0] == 'h'
 	})
 
@@ -36,12 +36,21 @@ func TestWhereQuery(t *testing.T) {
 }
 
 func TestWhileQuery(t *testing.T) {
-	q := makeTestTrie().Select().While(func(k string, v int) bool {
+	q := makeTestTrie().Select().All().While(func(k string, v int) bool {
 		return k != "bit"
 	})
 
 	testResults(t, q, []testEntry{
 		{"a", 16},
 		{"are", 5},
+	})
+}
+
+func TestFromQuery(t *testing.T) {
+	q := makeTestTrie().Select().Ascending().From("today")
+
+	testResults(t, q, []testEntry{
+		{"today", 4},
+		{"you", 37},
 	})
 }
