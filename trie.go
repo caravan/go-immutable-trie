@@ -37,10 +37,10 @@ func (t *trie[Key, Value]) get(k Key, n nibble.Nibbles[Key]) (Value, bool) {
 	if key.EqualTo[Key](t.pair.key, k) {
 		return t.pair.value, true
 	}
-	if idx, rest, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok {
 		bucket := t.buckets[idx]
 		if bucket != nil {
-			return bucket.get(k, rest)
+			return bucket.get(k, n)
 		}
 	}
 	var zero Value
@@ -94,12 +94,12 @@ func (t *trie[Key, Value]) appendPair(
 	p *pair[Key, Value], n nibble.Nibbles[Key],
 ) *trie[Key, Value] {
 	res := *t
-	if idx, rest, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok {
 		bucket := t.buckets[idx]
 		if bucket == nil {
 			res.buckets[idx] = &trie[Key, Value]{pair: *p}
 		} else {
-			res.buckets[idx] = bucket.put(p, rest)
+			res.buckets[idx] = bucket.put(p, n)
 		}
 	} else {
 		panic("programmer error: appended a non-consumable key")
@@ -109,11 +109,11 @@ func (t *trie[Key, Value]) appendPair(
 
 func (t *trie[Key, Value]) Remove(k Key) (Value, Trie[Key, Value], bool) {
 	n := nibble.Make(k)
-	if v, r, ok := t.remove(k, n); ok {
-		if r != nil {
-			return v, r, true
+	if val, rest, ok := t.remove(k, n); ok {
+		if rest != nil {
+			return val, rest, true
 		}
-		return v, empty[Key, Value]{}, true
+		return val, empty[Key, Value]{}, true
 	}
 	var zero Value
 	return zero, t, false
@@ -125,12 +125,12 @@ func (t *trie[Key, Value]) remove(
 	if key.EqualTo[Key](t.pair.key, k) {
 		return t.pair.value, t.promote(), true
 	}
-	if idx, rest, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok {
 		if bucket := t.buckets[idx]; bucket != nil {
-			if v, r, ok := bucket.remove(k, rest); ok {
+			if val, rest, ok := bucket.remove(k, n); ok {
 				res := *t
-				res.buckets[idx] = r
-				return v, &res, true
+				res.buckets[idx] = rest
+				return val, &res, true
 			}
 		}
 	}
@@ -173,18 +173,18 @@ func (t *trie[Key, Value]) First() Pair[Key, Value] {
 }
 
 func (t *trie[Key, Value]) Rest() Trie[Key, Value] {
-	if r := t.promote(); r != nil {
-		return r
+	if rest := t.promote(); rest != nil {
+		return rest
 	}
 	return empty[Key, Value]{}
 }
 
 func (t *trie[Key, Value]) Split() (Pair[Key, Value], Trie[Key, Value], bool) {
-	f := t.pair
+	first := t.pair
 	if r := t.promote(); r != nil {
-		return &f, r, true
+		return &first, r, true
 	}
-	return &f, empty[Key, Value]{}, true
+	return &first, empty[Key, Value]{}, true
 }
 
 func (t *trie[_, _]) Count() int {

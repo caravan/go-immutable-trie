@@ -106,12 +106,12 @@ func (i *iterator[Key, Value]) seek(
 	if key.EqualTo[Key](t.pair.key, k) {
 		return i, true
 	}
-	if idx, rest, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok {
 		bucket := t.buckets[idx]
 		if bucket != nil {
-			p := i.advanceIndex(int(idx))
-			c := p.child(bucket)
-			return c.seek(k, rest)
+			parent := i.advanceIndex(int(idx))
+			child := parent.child(bucket)
+			return child.seek(k, n)
 		}
 	}
 	return i, false
@@ -141,12 +141,12 @@ func (i *iterator[Key, Value]) fetchNext() (Iterator[Key, Value], bool) {
 		if bucket == nil {
 			continue
 		}
-		p := i.advanceIndex(idx)
-		return p.child(bucket), true
+		parent := i.advanceIndex(idx)
+		return parent.child(bucket), true
 	}
 	if i.parent != nil {
-		p := i.parent.advanceIndex(1)
-		return p.fetchNext()
+		parent := i.parent.advanceIndex(1)
+		return parent.fetchNext()
 	}
 	return empty[Key, Value]{}, false
 }
@@ -176,8 +176,8 @@ func (w *where[Key, Value]) Next() (
 ) {
 	for p, c, ok := w.Query.Next(); ok; p, c, ok = c.Next() {
 		if w.Filter(p.Key(), p.Value()) {
-			n := (&where[Key, Value]{c, w.Filter}).decorate()
-			return p, n, true
+			q := (&where[Key, Value]{c, w.Filter}).decorate()
+			return p, q, true
 		}
 	}
 	return nil, empty[Key, Value]{}, false
@@ -191,8 +191,8 @@ func (w *while[Key, Value]) Next() (
 	Pair[Key, Value], Query[Key, Value], bool,
 ) {
 	if p, c, ok := w.Query.Next(); ok && w.Filter(p.Key(), p.Value()) {
-		n := (&while[Key, Value]{c, w.Filter}).decorate()
-		return p, n, true
+		q := (&while[Key, Value]{c, w.Filter}).decorate()
+		return p, q, true
 	}
 	return nil, empty[Key, Value]{}, false
 }
@@ -208,7 +208,7 @@ func decorate[Key key.Keyable, Value any](
 }
 
 func (d *decorated[Key, Value]) ForEach(f ForEach[Key, Value]) {
-	for p, n, ok := d.Next(); ok; p, n, ok = n.Next() {
+	for p, q, ok := d.Next(); ok; p, q, ok = q.Next() {
 		f(p.Key(), p.Value())
 	}
 }
