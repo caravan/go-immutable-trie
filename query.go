@@ -32,11 +32,13 @@ type (
 	Filter[Key key.Keyable, Value any]  func(Key, Value) bool
 
 	iterator[Key key.Keyable, Value any] struct {
-		parent *iterator[Key, Value]
-		direction
+		parent     *iterator[Key, Value]
+		descending bool
 		*trie[Key, Value]
 		idx int
 	}
+
+	fetcher[Key key.Keyable, Value any] func() (Iterator[Key, Value], bool)
 
 	decorated[Key key.Keyable, Value any] struct {
 		Iterator[Key, Value]
@@ -51,13 +53,6 @@ type (
 		Query[Key, Value]
 		Filter[Key, Value]
 	}
-
-	direction int
-)
-
-const (
-	ascending direction = iota
-	descending
 )
 
 func makeQuery[Key key.Keyable, Value any](
@@ -77,26 +72,36 @@ func (i *iterator[Key, Value]) mutate(
 }
 
 func (i *iterator[Key, Value]) Ascending() Select[Key, Value] {
-	return i.setDirection(ascending)
+	return i
 }
 
 func (i *iterator[Key, Value]) Descending() Select[Key, Value] {
-	return i.setDirection(descending)
+	return i.mutate(func(i *iterator[Key, Value]) {
+		i.descending = true
+	})
 }
 
-func (i *iterator[Key, Value]) setDirection(d direction) Select[Key, Value] {
-	if i.direction == d {
-		return i
+func (i *iterator[Key, Value]) All() Query[Key, Value] {
+	if i.descending {
+		return i.last().decorate()
 	}
-	return i.mutate(func(i *iterator[Key, Value]) {
-		i.direction = d
-	})
+	return i.decorate()
 }
 
 func (i *iterator[Key, Value]) From(k Key) Query[Key, Value] {
 	n := nibble.Make(k)
 	bucket, _ := i.seek(k, n)
 	return bucket.decorate()
+}
+
+func (i *iterator[Key, Value]) last() *iterator[Key, Value] {
+	for idx := len(i.buckets) - 1; idx >= 0; idx-- {
+		bucket := i.buckets[idx]
+		if bucket != nil {
+			return i.setIndex(idx).child(bucket).last()
+		}
+	}
+	return i.setIndex(-1)
 }
 
 func (i *iterator[Key, Value]) seek(
@@ -109,7 +114,7 @@ func (i *iterator[Key, Value]) seek(
 	if idx, n, ok := n.Consume(); ok {
 		bucket := t.buckets[idx]
 		if bucket != nil {
-			parent := i.advanceIndex(int(idx))
+			parent := i.setIndex(int(idx))
 			child := parent.child(bucket)
 			return child.seek(k, n)
 		}
@@ -117,23 +122,22 @@ func (i *iterator[Key, Value]) seek(
 	return i, false
 }
 
-func (i *iterator[Key, Value]) All() Query[Key, Value] {
-	switch i.direction {
-	case ascending:
-		return i.decorate()
-	default:
-		panic("not implemented")
-	}
-}
-
 func (i *iterator[Key, Value]) Next() (
 	Pair[Key, Value], Query[Key, Value], bool,
 ) {
 	p := i.pair
-	if n, ok := i.fetchNext(); ok {
+	fetch := i.getFetcher()
+	if n, ok := fetch(); ok {
 		return &p, decorate(n), ok
 	}
 	return &p, empty[Key, Value]{}, false
+}
+
+func (i *iterator[Key, Value]) getFetcher() fetcher[Key, Value] {
+	if i.descending {
+		return i.fetchPrev
+	}
+	return i.fetchNext
 }
 
 func (i *iterator[Key, Value]) fetchNext() (Iterator[Key, Value], bool) {
@@ -151,9 +155,26 @@ func (i *iterator[Key, Value]) fetchNext() (Iterator[Key, Value], bool) {
 	return empty[Key, Value]{}, false
 }
 
-func (i *iterator[Key, Value]) advanceIndex(idx int) *iterator[Key, Value] {
+func (i *iterator[Key, Value]) fetchPrev() (Iterator[Key, Value], bool) {
+	for idx := i.idx - 1; idx >= 0; idx-- {
+		bucket := i.buckets[idx]
+		if bucket != nil {
+			return i.setIndex(idx).child(bucket).last().fetchPrev()
+		}
+	}
+	if i.parent != nil {
+		return i.parent.fetchPrev()
+	}
+	return empty[Key, Value]{}, false
+}
+
+func (i *iterator[Key, Value]) advanceIndex(off int) *iterator[Key, Value] {
+	return i.setIndex(i.idx + off)
+}
+
+func (i *iterator[Key, Value]) setIndex(idx int) *iterator[Key, Value] {
 	return i.mutate(func(i *iterator[Key, Value]) {
-		i.idx += idx
+		i.idx = idx
 	})
 }
 
@@ -161,9 +182,9 @@ func (i *iterator[Key, Value]) child(
 	t *trie[Key, Value],
 ) *iterator[Key, Value] {
 	return &iterator[Key, Value]{
-		parent:    i,
-		direction: i.direction,
-		trie:      t,
+		parent:     i,
+		descending: i.descending,
+		trie:       t,
 	}
 }
 

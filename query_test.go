@@ -54,3 +54,37 @@ func TestFromQuery(t *testing.T) {
 		{"you", 37},
 	})
 }
+
+func TestAscending(t *testing.T) {
+	q := makeTestTrie().Select().Ascending().All()
+	testResults(t, q, []testEntry{
+		{"a", 16},
+		{"are", 5},
+		{"bit", 1024},
+		{"curious", 128},
+		{"hear", 32},
+		{"hello", 1},
+		{"how", 9},
+		{"there", 2},
+		{"to", 64},
+		{"today", 4},
+		{"you", 37},
+	})
+}
+
+func TestDescending(t *testing.T) {
+	q := makeTestTrie().Select().Descending().All()
+	testResults(t, q, []testEntry{
+		{"you", 37},
+		{"today", 4},
+		{"to", 64},
+		{"there", 2},
+		{"hello", 1},
+		{"how", 9},
+		{"hear", 32},
+		{"curious", 128},
+		{"bit", 1024},
+		{"are", 5},
+		{"a", 16},
+	})
+}
