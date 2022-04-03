@@ -70,6 +70,27 @@ func TestAscending(t *testing.T) {
 		{"today", 4},
 		{"you", 37},
 	})
+
+	q = makeTestTrie().Select().From("hear")
+	testResults(t, q, []testEntry{
+		{"hear", 32},
+		{"hello", 1},
+		{"how", 9},
+		{"there", 2},
+		{"to", 64},
+		{"today", 4},
+		{"you", 37},
+	})
+
+	q = makeTestTrie().Select().From("heart")
+	testResults(t, q, []testEntry{
+		{"hello", 1},
+		{"how", 9},
+		{"there", 2},
+		{"to", 64},
+		{"today", 4},
+		{"you", 37},
+	})
 }
 
 func TestDescending(t *testing.T) {
@@ -82,6 +103,23 @@ func TestDescending(t *testing.T) {
 		{"hello", 1},
 		{"how", 9},
 		{"hear", 32},
+		{"curious", 128},
+		{"bit", 1024},
+		{"are", 5},
+		{"a", 16},
+	})
+
+	q = makeTestTrie().Select().Descending().From("hear")
+	testResults(t, q, []testEntry{
+		{"hear", 32},
+		{"curious", 128},
+		{"bit", 1024},
+		{"are", 5},
+		{"a", 16},
+	})
+
+	q = makeTestTrie().Select().Descending().From("heart")
+	testResults(t, q, []testEntry{
 		{"curious", 128},
 		{"bit", 1024},
 		{"are", 5},
