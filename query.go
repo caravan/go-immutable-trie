@@ -38,7 +38,9 @@ type (
 		idx int
 	}
 
-	fetcher[Key key.Keyable, Value any] func() (Iterator[Key, Value], bool)
+	fetcher[Key key.Keyable, Value any] func() (
+		Pair[Key, Value], Iterator[Key, Value],
+	)
 
 	decorated[Key key.Keyable, Value any] struct {
 		Iterator[Key, Value]
@@ -90,14 +92,16 @@ func (i *iterator[Key, Value]) All() Query[Key, Value] {
 
 func (i *iterator[Key, Value]) From(k Key) Query[Key, Value] {
 	n := nibble.Make(k)
-	bucket, _ := i.seek(k, n)
-	return bucket.decorate()
+	pos, ok := i.seek(k, n)
+	if !ok && i.descending {
+		return decorate(pos.prevParent())
+	}
+	return pos.decorate()
 }
 
 func (i *iterator[Key, Value]) last() *iterator[Key, Value] {
 	for idx := len(i.buckets) - 1; idx >= 0; idx-- {
-		bucket := i.buckets[idx]
-		if bucket != nil {
+		if bucket := i.buckets[idx]; bucket != nil {
 			return i.setIndex(idx).child(bucket).last()
 		}
 	}
@@ -125,12 +129,9 @@ func (i *iterator[Key, Value]) seek(
 func (i *iterator[Key, Value]) Next() (
 	Pair[Key, Value], Query[Key, Value], bool,
 ) {
-	p := i.pair
 	fetch := i.getFetcher()
-	if n, ok := fetch(); ok {
-		return &p, decorate(n), ok
-	}
-	return &p, empty[Key, Value]{}, false
+	p, n := fetch()
+	return p, decorate(n), true
 }
 
 func (i *iterator[Key, Value]) getFetcher() fetcher[Key, Value] {
@@ -140,36 +141,54 @@ func (i *iterator[Key, Value]) getFetcher() fetcher[Key, Value] {
 	return i.fetchNext
 }
 
-func (i *iterator[Key, Value]) fetchNext() (Iterator[Key, Value], bool) {
-	for idx, bucket := range i.buckets[i.idx:] {
-		if bucket == nil {
-			continue
-		}
-		parent := i.advanceIndex(idx)
-		return parent.child(bucket), true
+func (i *iterator[Key, Value]) fetchNext() (
+	Pair[Key, Value], Iterator[Key, Value],
+) {
+	p := i.pair
+	if res, ok := i.nextBucket(); ok {
+		return &p, res
 	}
-	if i.parent != nil {
-		parent := i.parent.advanceIndex(1)
-		return parent.fetchNext()
-	}
-	return empty[Key, Value]{}, false
+	return &p, empty[Key, Value]{}
 }
 
-func (i *iterator[Key, Value]) fetchPrev() (Iterator[Key, Value], bool) {
+func (i *iterator[Key, Value]) nextBucket() (*iterator[Key, Value], bool) {
+	for idx := i.idx; idx < len(i.buckets); idx++ {
+		if bucket := i.buckets[idx]; bucket != nil {
+			parent := i.setIndex(idx)
+			return parent.child(bucket), true
+		}
+	}
+	if parent := i.parent; parent != nil {
+		return parent.advanceIndex().nextBucket()
+	}
+	return nil, false
+}
+
+func (i *iterator[Key, Value]) fetchPrev() (
+	Pair[Key, Value], Iterator[Key, Value],
+) {
+	p := i.pair
+	return &p, i.prevParent()
+}
+
+func (i *iterator[Key, Value]) prevParent() Iterator[Key, Value] {
+	if parent := i.parent; parent != nil {
+		return parent.prevBucket()
+	}
+	return empty[Key, Value]{}
+}
+
+func (i *iterator[Key, Value]) prevBucket() *iterator[Key, Value] {
 	for idx := i.idx - 1; idx >= 0; idx-- {
-		bucket := i.buckets[idx]
-		if bucket != nil {
-			return i.setIndex(idx).child(bucket).last().fetchPrev()
+		if bucket := i.buckets[idx]; bucket != nil {
+			return i.setIndex(idx).child(bucket).last()
 		}
 	}
-	if i.parent != nil {
-		return i.parent.fetchPrev()
-	}
-	return empty[Key, Value]{}, false
+	return i.setIndex(-1)
 }
 
-func (i *iterator[Key, Value]) advanceIndex(off int) *iterator[Key, Value] {
-	return i.setIndex(i.idx + off)
+func (i *iterator[Key, Value]) advanceIndex() *iterator[Key, Value] {
+	return i.setIndex(i.idx + 1)
 }
 
 func (i *iterator[Key, Value]) setIndex(idx int) *iterator[Key, Value] {
@@ -201,7 +220,7 @@ func (w *where[Key, Value]) Next() (
 			return p, q, true
 		}
 	}
-	return nil, empty[Key, Value]{}, false
+	return nil, decoratedEmpty[Key, Value](), false
 }
 
 func (w *where[Key, Value]) decorate() Query[Key, Value] {
@@ -215,7 +234,7 @@ func (w *while[Key, Value]) Next() (
 		q := (&while[Key, Value]{c, w.Filter}).decorate()
 		return p, q, true
 	}
-	return nil, empty[Key, Value]{}, false
+	return nil, decoratedEmpty[Key, Value](), false
 }
 
 func (w *while[Key, Value]) decorate() Query[Key, Value] {

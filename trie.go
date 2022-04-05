@@ -12,6 +12,7 @@ type (
 		Put(Key, Value) Trie[Key, Value]
 		Get(Key) (Value, bool)
 		Remove(Key) (Value, Trie[Key, Value], bool)
+		RemovePrefix(Key) (Trie[Key, Value], bool)
 		First() Pair[Key, Value]
 		Rest() Trie[Key, Value]
 		Split() (Pair[Key, Value], Trie[Key, Value], bool)
@@ -105,6 +106,30 @@ func (t *trie[Key, Value]) appendPair(
 		panic("programmer error: appended a non-consumable key")
 	}
 	return &res
+}
+
+func (t *trie[Key, Value]) RemovePrefix(k Key) (Trie[Key, Value], bool) {
+	n := nibble.Make(k)
+	if res, ok := t.removePrefix(k, n); ok {
+		return res, ok
+	}
+	return t, false
+}
+
+func (t *trie[Key, Value]) removePrefix(
+	k Key, n nibble.Nibbles[Key],
+) (*trie[Key, Value], bool) {
+	if idx, n, ok := n.Consume(); ok {
+		if bucket := t.buckets[idx]; bucket != nil {
+			if bucket, ok := bucket.removePrefix(k, n); ok {
+				res := *t
+				res.buckets[idx] = bucket
+				return &res, true
+			}
+		}
+		return t, false
+	}
+	return nil, true
 }
 
 func (t *trie[Key, Value]) Remove(k Key) (Value, Trie[Key, Value], bool) {

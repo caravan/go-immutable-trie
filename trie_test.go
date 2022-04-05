@@ -163,3 +163,14 @@ func TestSplitting(t *testing.T) {
 
 	as.Equal(0, len(check))
 }
+
+func TestRemovePrefix(t *testing.T) {
+	as := assert.New(t)
+
+	t1 := makeTestTrie()
+	t2, ok := t1.RemovePrefix("h")
+
+	as.True(ok)
+	c := t1.Count()
+	as.Equal(c-3, t2.Count())
+}
