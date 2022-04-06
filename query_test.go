@@ -144,10 +144,9 @@ func TestLargeDescending(t *testing.T) {
 		m[e.key] = e.value
 	}
 
-	sorted := in[:]
-	sort.Slice(sorted, func(l, r int) bool {
-		le := sorted[l]
-		re := sorted[r]
+	sort.Slice(in, func(l, r int) bool {
+		le := in[l]
+		re := in[r]
 		return key.Compare[string](le.key, re.key) == -1
 	})
 
@@ -156,7 +155,7 @@ func TestLargeDescending(t *testing.T) {
 
 	i := len(in) - 1
 	tr.Select().Descending().All().ForEach(func(k string, v int) {
-		e := sorted[i]
+		e := in[i]
 		as.Equal(e.key, k)
 		as.Equal(e.value, v)
 		i--

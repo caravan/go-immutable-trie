@@ -22,9 +22,13 @@ type (
 	}
 
 	trie[Key key.Keyable, Value any] struct {
-		pair    pair[Key, Value]
-		buckets [nibble.Size]*trie[Key, Value]
+		pair[Key, Value]
+		*buckets[Key, Value]
 	}
+
+	buckets[Key key.Keyable, Value any] [nibble.Size]*trie[Key, Value]
+
+	bucketsMutator[Key key.Keyable, Value any] func(*buckets[Key, Value])
 )
 
 func (*trie[_, _]) trie() {}
@@ -38,7 +42,7 @@ func (t *trie[Key, Value]) get(k Key, n nibble.Nibbles[Key]) (Value, bool) {
 	if key.EqualTo[Key](t.pair.key, k) {
 		return t.pair.value, true
 	}
-	if idx, n, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok && t.buckets != nil {
 		bucket := t.buckets[idx]
 		if bucket != nil {
 			return bucket.get(k, n)
@@ -76,36 +80,36 @@ func (t *trie[Key, Value]) replacePair(p *pair[Key, Value]) *trie[Key, Value] {
 func (t *trie[Key, Value]) insertPair(
 	p *pair[Key, Value], n nibble.Nibbles[Key],
 ) *trie[Key, Value] {
-	res := *t
-	res.pair = *p
 	if idx, next, ok := n.Branch(t.pair.key).Consume(); ok {
-		bucket := res.buckets[idx]
-		if bucket == nil {
-			res.buckets[idx] = &trie[Key, Value]{pair: t.pair}
-		} else {
-			res.buckets[idx] = bucket.put(&t.pair, next)
-		}
-	} else {
-		panic("programmer error: demoted a non-consumable key")
+		res := t.mutateBuckets(func(buckets *buckets[Key, Value]) {
+			bucket := buckets[idx]
+			if bucket == nil {
+				buckets[idx] = &trie[Key, Value]{pair: t.pair}
+			} else {
+				buckets[idx] = bucket.put(&t.pair, next)
+			}
+		})
+		res.pair = *p
+		return res
 	}
-	return &res
+	panic("programmer error: demoted a non-consumable key")
+
 }
 
 func (t *trie[Key, Value]) appendPair(
 	p *pair[Key, Value], n nibble.Nibbles[Key],
 ) *trie[Key, Value] {
-	res := *t
 	if idx, n, ok := n.Consume(); ok {
-		bucket := t.buckets[idx]
-		if bucket == nil {
-			res.buckets[idx] = &trie[Key, Value]{pair: *p}
-		} else {
-			res.buckets[idx] = bucket.put(p, n)
-		}
-	} else {
-		panic("programmer error: appended a non-consumable key")
+		return t.mutateBuckets(func(buckets *buckets[Key, Value]) {
+			bucket := buckets[idx]
+			if bucket == nil {
+				buckets[idx] = &trie[Key, Value]{pair: *p}
+			} else {
+				buckets[idx] = bucket.put(p, n)
+			}
+		})
 	}
-	return &res
+	panic("programmer error: appended a non-consumable key")
 }
 
 func (t *trie[Key, Value]) RemovePrefix(k Key) (Trie[Key, Value], bool) {
@@ -119,12 +123,12 @@ func (t *trie[Key, Value]) RemovePrefix(k Key) (Trie[Key, Value], bool) {
 func (t *trie[Key, Value]) removePrefix(
 	k Key, n nibble.Nibbles[Key],
 ) (*trie[Key, Value], bool) {
-	if idx, n, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok && t.buckets != nil {
 		if bucket := t.buckets[idx]; bucket != nil {
 			if bucket, ok := bucket.removePrefix(k, n); ok {
-				res := *t
-				res.buckets[idx] = bucket
-				return &res, true
+				return t.mutateBuckets(func(buckets *buckets[Key, Value]) {
+					buckets[idx] = bucket
+				}), true
 			}
 		}
 		return t, false
@@ -150,7 +154,7 @@ func (t *trie[Key, Value]) remove(
 	if key.EqualTo[Key](t.pair.key, k) {
 		return t.pair.value, t.promote(), true
 	}
-	if idx, n, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok && t.buckets != nil {
 		if bucket := t.buckets[idx]; bucket != nil {
 			if val, rest, ok := bucket.remove(k, n); ok {
 				res := *t
@@ -161,6 +165,19 @@ func (t *trie[Key, Value]) remove(
 	}
 	var zero Value
 	return zero, nil, false
+}
+
+func (t *trie[Key, Value]) mutateBuckets(
+	mutate bucketsMutator[Key, Value],
+) *trie[Key, Value] {
+	res := *t
+	var storage buckets[Key, Value]
+	if res.buckets != nil {
+		storage = *res.buckets
+	}
+	res.buckets = &storage
+	mutate(res.buckets)
+	return &res
 }
 
 func (t *trie[Key, Value]) promote() *trie[Key, Value] {
@@ -178,15 +195,17 @@ func (t *trie[Key, Value]) leastBucket() (*trie[Key, Value], int) {
 	var low Key
 	idx := -1
 	first := true
-	for i, bucket := range t.buckets {
-		if bucket == nil {
-			continue
-		}
-		if k := bucket.pair.Key(); first || key.LessThan[Key](k, low) {
-			idx = i
-			low = k
-			res = bucket
-			first = false
+	if t.buckets != nil {
+		for i, bucket := range t.buckets {
+			if bucket == nil {
+				continue
+			}
+			if k := bucket.pair.Key(); first || key.LessThan[Key](k, low) {
+				idx = i
+				low = k
+				res = bucket
+				first = false
+			}
 		}
 	}
 	return res, idx
@@ -214,9 +233,11 @@ func (t *trie[Key, Value]) Split() (Pair[Key, Value], Trie[Key, Value], bool) {
 
 func (t *trie[_, _]) Count() int {
 	res := 1
-	for _, bucket := range t.buckets {
-		if bucket != nil {
-			res += bucket.Count()
+	if t.buckets != nil {
+		for _, bucket := range t.buckets {
+			if bucket != nil {
+				res += bucket.Count()
+			}
 		}
 	}
 	return res

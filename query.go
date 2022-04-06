@@ -100,9 +100,11 @@ func (i *iterator[Key, Value]) From(k Key) Query[Key, Value] {
 }
 
 func (i *iterator[Key, Value]) last() *iterator[Key, Value] {
-	for idx := len(i.buckets) - 1; idx >= 0; idx-- {
-		if bucket := i.buckets[idx]; bucket != nil {
-			return i.setIndex(idx).child(bucket).last()
+	if i.buckets != nil {
+		for idx := len(i.buckets) - 1; idx >= 0; idx-- {
+			if bucket := i.buckets[idx]; bucket != nil {
+				return i.setIndex(idx).child(bucket).last()
+			}
 		}
 	}
 	return i.setIndex(-1)
@@ -115,7 +117,7 @@ func (i *iterator[Key, Value]) seek(
 	if key.EqualTo[Key](t.pair.key, k) {
 		return i, true
 	}
-	if idx, n, ok := n.Consume(); ok {
+	if idx, n, ok := n.Consume(); ok && t.buckets != nil {
 		bucket := t.buckets[idx]
 		if bucket != nil {
 			parent := i.setIndex(int(idx))
@@ -152,10 +154,12 @@ func (i *iterator[Key, Value]) fetchNext() (
 }
 
 func (i *iterator[Key, Value]) nextBucket() (*iterator[Key, Value], bool) {
-	for idx := i.idx; idx < len(i.buckets); idx++ {
-		if bucket := i.buckets[idx]; bucket != nil {
-			parent := i.setIndex(idx)
-			return parent.child(bucket), true
+	if i.buckets != nil {
+		for idx := i.idx; idx < len(i.buckets); idx++ {
+			if bucket := i.buckets[idx]; bucket != nil {
+				parent := i.setIndex(idx)
+				return parent.child(bucket), true
+			}
 		}
 	}
 	if parent := i.parent; parent != nil {
@@ -179,9 +183,11 @@ func (i *iterator[Key, Value]) prevParent() Iterator[Key, Value] {
 }
 
 func (i *iterator[Key, Value]) prevBucket() *iterator[Key, Value] {
-	for idx := i.idx - 1; idx >= 0; idx-- {
-		if bucket := i.buckets[idx]; bucket != nil {
-			return i.setIndex(idx).child(bucket).last()
+	if i.buckets != nil {
+		for idx := i.idx - 1; idx >= 0; idx-- {
+			if bucket := i.buckets[idx]; bucket != nil {
+				return i.setIndex(idx).child(bucket).last()
+			}
 		}
 	}
 	return i.setIndex(-1)
