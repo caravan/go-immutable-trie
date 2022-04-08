@@ -9,16 +9,28 @@ type (
 	// Trie maps a set of Keys to another set of Values
 	Trie[Key key.Keyable, Value any] interface {
 		trie() // marker
-		Put(Key, Value) Trie[Key, Value]
+		Read[Key, Value]
+		Split[Key, Value]
+		Write[Key, Value]
+	}
+
+	Read[Key key.Keyable, Value any] interface {
 		Get(Key) (Value, bool)
-		Remove(Key) (Value, Trie[Key, Value], bool)
-		RemovePrefix(Key) (Trie[Key, Value], bool)
-		First() Pair[Key, Value]
-		Rest() Trie[Key, Value]
-		Split() (Pair[Key, Value], Trie[Key, Value], bool)
 		Count() int
 		IsEmpty() bool
 		Select() Direction[Key, Value]
+	}
+
+	Split[Key key.Keyable, Value any] interface {
+		First() Pair[Key, Value]
+		Rest() Trie[Key, Value]
+		Split() (Pair[Key, Value], Trie[Key, Value], bool)
+	}
+
+	Write[Key key.Keyable, Value any] interface {
+		Put(Key, Value) Trie[Key, Value]
+		Remove(Key) (Value, Trie[Key, Value], bool)
+		RemovePrefix(Key) (Trie[Key, Value], bool)
 	}
 
 	trie[Key key.Keyable, Value any] struct {
