@@ -37,3 +37,13 @@ func LessThan[Key Keyable](l, r Key) bool {
 func GreaterThan[Key Keyable](l, r Key) bool {
 	return Compare[Key](l, r) == Greater
 }
+
+// StartsWith returns whether the provided Key starts with a prefix
+func StartsWith[Key Keyable](k Key, prefix Key) bool {
+	if len(k) < len(prefix) {
+		return false
+	}
+	lk := k[:len(prefix)]
+	return EqualTo(lk, prefix)
+}
+

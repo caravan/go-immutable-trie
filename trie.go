@@ -135,6 +135,13 @@ func (t *trie[Key, Value]) RemovePrefix(k Key) (Trie[Key, Value], bool) {
 func (t *trie[Key, Value]) removePrefix(
 	k Key, n nibble.Nibbles[Key],
 ) (*trie[Key, Value], bool) {
+	if key.StartsWith(t.key, k) {
+		if res := t.promote(); res != nil {
+			res, _ = res.removePrefix(k, n)
+			return res, true
+		}
+		return nil, true
+	}
 	if idx, n, ok := n.Consume(); ok && t.buckets != nil {
 		if bucket := t.buckets[idx]; bucket != nil {
 			if bucket, ok := bucket.removePrefix(k, n); ok {
@@ -143,9 +150,8 @@ func (t *trie[Key, Value]) removePrefix(
 				}), true
 			}
 		}
-		return t, false
 	}
-	return nil, true
+	return t, false
 }
 
 func (t *trie[Key, Value]) Remove(k Key) (Value, Trie[Key, Value], bool) {
@@ -194,10 +200,11 @@ func (t *trie[Key, Value]) mutateBuckets(
 
 func (t *trie[Key, Value]) promote() *trie[Key, Value] {
 	if bucket, idx := t.leastBucket(); bucket != nil {
-		res := *t
+		res := t.mutateBuckets(func(buckets *buckets[Key, Value]) {
+			buckets[idx] = bucket.promote()
+		})
 		res.pair = bucket.pair
-		res.buckets[idx] = bucket.promote()
-		return &res
+		return res
 	}
 	return nil
 }

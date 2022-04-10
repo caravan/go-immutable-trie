@@ -24,3 +24,11 @@ func TestGreaterThanKeys(t *testing.T) {
 	as.True(key.GreaterThan[string]("barley", "ace"))
 	as.False(key.GreaterThan[string]("ace", "barley"))
 }
+
+func TestStartsWith(t *testing.T) {
+	as := assert.New(t)
+	as.True(key.StartsWith[string]("barley", "bar"))
+	as.False(key.StartsWith[string]("barley", "car"))
+	as.True(key.StartsWith[string]("barley", "barley"))
+	as.False(key.StartsWith[string]("barley", "barleys"))
+}
