@@ -176,4 +176,8 @@ func TestRemovePrefix(t *testing.T) {
 	t3, ok := t1.RemovePrefix("he")
 	as.True(ok)
 	as.Equal(len(testMap)-2, t3.Count())
+
+	t4, ok := t1.RemovePrefix("missing")
+	as.False(ok)
+	as.Equal(t1, t4)
 }
