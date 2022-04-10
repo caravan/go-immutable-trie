@@ -94,12 +94,11 @@ func (t *trie[Key, Value]) insertPair(
 ) *trie[Key, Value] {
 	if idx, next, ok := n.Branch(t.pair.key).Consume(); ok {
 		res := t.mutateBuckets(func(buckets *buckets[Key, Value]) {
-			bucket := buckets[idx]
-			if bucket == nil {
-				buckets[idx] = &trie[Key, Value]{pair: t.pair}
-			} else {
+			if bucket := buckets[idx]; bucket != nil {
 				buckets[idx] = bucket.put(&t.pair, next)
+				return
 			}
+			buckets[idx] = &trie[Key, Value]{pair: t.pair}
 		})
 		res.pair = *p
 		return res
@@ -113,12 +112,11 @@ func (t *trie[Key, Value]) appendPair(
 ) *trie[Key, Value] {
 	if idx, n, ok := n.Consume(); ok {
 		return t.mutateBuckets(func(buckets *buckets[Key, Value]) {
-			bucket := buckets[idx]
-			if bucket == nil {
-				buckets[idx] = &trie[Key, Value]{pair: *p}
-			} else {
+			if bucket := buckets[idx]; bucket != nil {
 				buckets[idx] = bucket.put(p, n)
+				return
 			}
+			buckets[idx] = &trie[Key, Value]{pair: *p}
 		})
 	}
 	panic("programmer error: appended a non-consumable key")
